@@ -27,7 +27,7 @@ public class Bille {
         bas
     }
 
-    private final double COEFF_FROTTEMENT = 0.25;
+    private final double COEFF_FROTTEMENT = 0.8;
     private final double COEFF_REBOND = 0.6;
 
 
@@ -42,6 +42,7 @@ private int maxX; // coordonnée max en X
 private int maxY; // coordonnée max en Y
 private ImageView imageView; // ImageView
     private ArrayList<RectF> rectanglesProxVide = new ArrayList();
+    private boolean memFinNiveau;
 
     //Casse-Briques
     int nbMursHauteur = 12;
@@ -82,6 +83,7 @@ private ImageView imageView; // ImageView
     this.rectanglesCasseBriques = rectanglesCasseBriques;
     this.nbMursHauteur = nbMursHauteur;
     this.nbMursLargeur = nbMursLargeur;
+    memFinNiveau = false;
     }
 
     /*  Getters         */
@@ -95,7 +97,7 @@ private ImageView imageView; // ImageView
 
 
     /*      Fonction de mise à jour de la position de la bille      */
-    public void updatePosBille(float AccelX, float AccelY){
+    public boolean updatePosBille(float AccelX, float AccelY){
         vitesseX += -AccelX/COEFF_DIV_VITESSE;
         vitesseY += AccelY/COEFF_DIV_VITESSE;
 
@@ -109,11 +111,11 @@ private ImageView imageView; // ImageView
         }
 
 
-        if(posY < 0 || posY + 390 > height) {
+        if(posY < 0 || posY + 150 > height) {
             if (posY < 0)
                 posY = 0;
             else
-                posY = height - 390;
+                posY = height - 150;
             vitesseY = -vitesseY*(float)COEFF_REBOND;
             Log.d(TAG, "Vitesse Y : " +vitesseY);
         }
@@ -170,9 +172,10 @@ private ImageView imageView; // ImageView
 
 
         //Version Casse-Briques
-
+        memFinNiveau = true;
         for (int i = 0; i < nbMursHauteur; i++) {
             for (int j = 0; j < nbMursLargeur; j++) {
+
                 Log.d(TAG, "Rectangle de collision : " +rectanglesCasseBriques[i][j].toShortString());
                 Log.d(TAG, "i : " +i+ " j : " +j);
                 if (rectanglesCasseBriques[i][j].intersects(posX, posY, posX + sizeX, posY + sizeY)) { // S'il y a collision avec la bille (positions passées en paramètre)
@@ -218,6 +221,9 @@ private ImageView imageView; // ImageView
                     imagesCasseBriques[i][j].setAlpha(0.0f);
                     rectanglesCasseBriques[i][j].setEmpty();
                 }
+                if(!rectanglesCasseBriques[i][j].isEmpty()){
+                    memFinNiveau = false;
+                }
             }
         }
 
@@ -254,7 +260,10 @@ private ImageView imageView; // ImageView
         }
 */
 
-
+    if(memFinNiveau)
+        return true;
+    else
+        return false;
     }
 
 

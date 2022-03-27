@@ -11,7 +11,9 @@
         android:theme="@style/Theme.Tp_Labyby">
         <activity
             android:name=".jeuActivity"
-            android:exported="false" />
+            android:exported="false"
+            android:screenOrientation="portrait"
+            />
         <activity android:name=".MainActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

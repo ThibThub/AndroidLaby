@@ -8,20 +8,29 @@ import androidx.constraintlayout.widget.ConstraintLayout;
 import android.content.Intent;
 import android.graphics.Point;
 import android.graphics.RectF;
+import android.graphics.Typeface;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.View;
+import android.widget.EditText;
 import android.widget.ImageView;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
 
 import fr.ensea.tp_labyby.Bille;
 
 public class jeuActivity extends AppCompatActivity {
 
     private final static int TAILLE_BILLE = 100;
+    private int hauteurTexte;
     private final static String TAG = "debugPageJeu";
+
+    private final static double COEFF_DIV_HAMMOND = 1.72;
+    private final static int HAUTEUR_HAMMOND = 480;
 
     private final int WALL_WIDTH = 400;
     private final int WALL_HEIGTH = 265;
@@ -31,7 +40,17 @@ public class jeuActivity extends AppCompatActivity {
 
     private final double RATIO_IMAGE = 1.509; //Ratio de l'image pour le "bad guy" de Jurassic Park
 
+    private long launchTime;
+    private long tempsFinNiveauUtilisateur;
+
     private ArrayList<RectF> rectangles; //Version labyrinthe
+
+    private Point sizeScreen;
+    private ConstraintLayout layout;
+
+    private boolean memFin = false;
+
+    private boolean finNiveau;
 
     //Version Casse-briques
     ImageView im[][] = new ImageView[NB_MURS_HAUTEUR][NB_MURS_LARGEURS];
@@ -43,11 +62,18 @@ public class jeuActivity extends AppCompatActivity {
     private String nomJoueur;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        Log.d(TAG, "Début de la partie !");
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_jeu);
         imageBille = (ImageView)findViewById(R.id.imageView);
         imageBille.getLayoutParams().width = TAILLE_BILLE;
         imageBille.getLayoutParams().height = TAILLE_BILLE;
+        sizeScreen = new Point();
+        getWindowManager().getDefaultDisplay().getSize(sizeScreen);
+        layout = (ConstraintLayout) findViewById(R.id.bille);
+        finNiveau = false;
+        memFin = false;
+        hauteurTexte = 50;
         constructionNiveau();
     }
 
@@ -56,8 +82,9 @@ public class jeuActivity extends AppCompatActivity {
     protected void onStart() {
         super.onStart();
 
-
+        launchTime = System.currentTimeMillis();
         bille = new Bille(this, TAILLE_BILLE, getWindowManager().getDefaultDisplay(), rectangles, rectangCasseBriques, im, NB_MURS_HAUTEUR, NB_MURS_LARGEURS);
+
     }
 
     @Override
@@ -99,6 +126,14 @@ public class jeuActivity extends AppCompatActivity {
                                 //bille.updatePosBille(accelorenzo.getAccelX(), accelorenzo.getAccelY()); // à mettre dans un thread hors UI
                                 imageBille.setX(bille.getPosx());
                                 imageBille.setY(bille.getPosy());
+                                if(finNiveau) {
+                                    if(!memFin) {
+                                        finNiveau();
+                                        finNiveau = false;
+                                    }
+                                    }
+
+
                                 //Log.d(TAG, "Boucle thread !");
 
                             }
@@ -123,7 +158,11 @@ public class jeuActivity extends AppCompatActivity {
             public void run() {
                 try {
                     while (true) {
-                        bille.updatePosBille(accelorenzo.getAccelX(), accelorenzo.getAccelY());
+                        if(bille.updatePosBille(accelorenzo.getAccelX(), accelorenzo.getAccelY())) {
+                            Log.d(TAG, "Boucle 2");
+                            finNiveau = true;
+
+                        }
                         Thread.sleep(15);
                     }
                 } catch (InterruptedException e) {
@@ -135,10 +174,52 @@ public class jeuActivity extends AppCompatActivity {
 
     }
 
+    private void finNiveau(){
+        memFin = true;
+        Log.d(TAG, "Fin de Niveau bon sang !!!!");
+        tempsFinNiveauUtilisateur = (System.currentTimeMillis() - launchTime)/1000;
+
+
+        TextView NouveauTexte = new TextView(this);
+        NouveauTexte.setText("Bravo, tu as fini en " +tempsFinNiveauUtilisateur+ "s ! \nClique sur John pour relancer !");
+        NouveauTexte.setMaxWidth(this.getResources().getDisplayMetrics().widthPixels - (int)(HAUTEUR_HAMMOND/COEFF_DIV_HAMMOND));
+        NouveauTexte.setMaxHeight(hauteurTexte);
+        NouveauTexte.setTextSize((float)0.01*this.getResources().getDisplayMetrics().heightPixels);
+        //NouveauTexte.setBackground(this.getDrawable(R.drawable.woood));
+        NouveauTexte.setBackgroundResource(R.drawable.woood);
+        //NouveauTexte.setX(this.getResources().getDisplayMetrics().heightPixels - HAUTEUR_HAMMOND + NouveauTexte.getMaxHeight());
+        NouveauTexte.setY(this.getResources().getDisplayMetrics().heightPixels - (HAUTEUR_HAMMOND+220) + NouveauTexte.getMaxHeight());
+        NouveauTexte.setTextColor(getResources().getColor(android.R.color.background_light));
+        NouveauTexte.setTypeface(null, Typeface.BOLD);
+        NouveauTexte.setWidth(this.getResources().getDisplayMetrics().widthPixels - (int)(HAUTEUR_HAMMOND/COEFF_DIV_HAMMOND));
+        layout.addView(NouveauTexte);
+
+
+
+        /*  On affiche un John HAMMOND de la gentillesse            */
+        ImageView john = new ImageView(this);
+        john.setImageResource(R.drawable.hammond);
+        john.setMaxHeight(HAUTEUR_HAMMOND);
+        john.setMaxWidth((int) (HAUTEUR_HAMMOND/COEFF_DIV_HAMMOND));
+        john.setAdjustViewBounds(true);
+        john.setX(this.getResources().getDisplayMetrics().widthPixels - (int)(HAUTEUR_HAMMOND/COEFF_DIV_HAMMOND));
+        john.setY(this.getResources().getDisplayMetrics().heightPixels - (HAUTEUR_HAMMOND+220));
+        john.setOnClickListener(new View.OnClickListener(){
+            public void onClick(View v){
+                finish();
+                startActivity(getIntent());
+            }
+        });
+        layout.addView(john);
+        /*  On récupère le temps de fin
+        * On affiche un message de joie et de bonheur
+        * On affiche le temps final
+        * On affiche le tableau des scores
+        */
+    }
+
 
     void constructionNiveau(){
-        Point sizeScreen = new Point();
-        getWindowManager().getDefaultDisplay().getSize(sizeScreen);
 
         double largeurMurs = sizeScreen.x/NB_MURS_LARGEURS;
         double hauteurMurs = largeurMurs/RATIO_IMAGE;
@@ -149,10 +230,26 @@ public class jeuActivity extends AppCompatActivity {
 
         Log.d(TAG, "Reste en largeur : " +resteLargeur);
 
+        /* Génération automatique map       */
+        Random inte = new Random();
+        int posIniBilleX = (this.getResources().getDisplayMetrics().widthPixels-TAILLE_BILLE)/2;
+        int posIniBilleY = (this.getResources().getDisplayMetrics().heightPixels-TAILLE_BILLE)/2;
+        int [][] mapMurs= new int[NB_MURS_HAUTEUR][NB_MURS_HAUTEUR];
+        for (int i = 0; i < NB_MURS_HAUTEUR; i++) {
+            for (int j = 0; j < NB_MURS_LARGEURS; j++) {
+                mapMurs[i][j] = inte.nextInt(2);
+//                if(((j * (int) largeurMurs < posIniBilleX) && ((j+1) * (int) largeurMurs > posIniBilleX)) || (i * (int) hauteurMurs < posIniBilleY) && ((i+1) * (int) hauteurMurs > posIniBilleY))
+//                    mapMurs[i][j] = 0;
+//            }
+                if(((j * (int) largeurMurs < posIniBilleX) && ((j+1) * (int) largeurMurs > posIniBilleX)) && (i * (int) hauteurMurs < posIniBilleY) && ((i+1) * (int) hauteurMurs > posIniBilleY))
+                    mapMurs[i][j] = 0;
+            }
+        }
 
-        /*  Cartographie du niveau / grille    */
+
+        /*  Cartographie du niveau / grille   "en dur" */
         //Hauteur : 13 ; Largeur : 5
-        int [][] mapMurs = {
+        /*int [][] mapMurs = {
                 {1, 1, 1, 1, 1},
                 {1, 1, 1, 1, 1},
                 {1, 0, 0, 1, 1},
@@ -164,22 +261,39 @@ public class jeuActivity extends AppCompatActivity {
                 {1, 0, 0, 1, 1},
                 {0, 0, 1, 1, 1},
                 {1, 1, 1, 1, 1},
-                {1, 1, 1, 1, 1},
-        };
+                {0, 0, 0, 0, 0},
+        };*/
+
+        /*int [][] mapMurs = {
+                {0, 0, 0, 0, 0},
+                {0, 0, 0, 0, 0},
+                {0, 0, 0, 0, 0},
+                {0, 0, 0, 0, 0},
+                {0, 0, 0, 0, 0},
+                {0, 0, 0, 0, 0},
+                {0, 1, 0, 0, 0},
+                {0, 0, 0, 0, 0},
+                {0, 0, 0, 0, 0},
+                {0, 0, 0, 0, 0},
+                {0, 0, 0, 0, 0},
+                {0, 0, 0, 0, 0},
+        };*/
 
 
 
-        ConstraintLayout layout = (ConstraintLayout) findViewById(R.id.bille);
+        //ConstraintLayout layout = (ConstraintLayout) findViewById(R.id.bille);
         //On créé une liste pour les blocs dont on veut tester l'intersection avec la bille
         rectangles = new ArrayList();
         boolean videAProximite;
 
+        /* Géneration niveau "en dur"       */
         for (int i = 0; i < NB_MURS_HAUTEUR; i++){
             for(int j = 0; j < NB_MURS_LARGEURS; j++){
                 videAProximite = false;
                 if(mapMurs[i][j] == 1) {
                     ImageView imageView = new ImageView(this);
-                    imageView.setImageResource(R.drawable.badguy);
+                    //imageView.setImageResource(R.drawable.badguy);
+                    imageView.setImageResource(R.drawable.caisse);
                     imageView.setMaxWidth((int) largeurMurs);
                     imageView.setMaxHeight((int) hauteurMurs);
                     imageView.setAdjustViewBounds(true);
@@ -236,6 +350,7 @@ public class jeuActivity extends AppCompatActivity {
 
             }
         }
+
 
 
 
