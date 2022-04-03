@@ -4,10 +4,12 @@ import static java.lang.Math.abs;
 
 import android.graphics.Point;
 import android.graphics.RectF;
+import android.media.MediaPlayer;
 import android.util.Log;
 import android.view.Display;
 import android.widget.ImageView;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -30,6 +32,8 @@ public class Bille {
     private final double COEFF_FROTTEMENT = 0.8;
     private final double COEFF_REBOND = 0.6;
 
+    private final static float VOLUME_REBOND = 0.2f;
+
 
     private final int COEFF_DIV_VITESSE = 10;
     private final static String TAG = "debugBille";
@@ -43,6 +47,8 @@ private int maxY; // coordonnée max en Y
 private ImageView imageView; // ImageView
     private ArrayList<RectF> rectanglesProxVide = new ArrayList();
     private boolean memFinNiveau;
+
+    private MediaPlayer rebond;
 
     //Casse-Briques
     int nbMursHauteur = 12;
@@ -77,6 +83,9 @@ private ImageView imageView; // ImageView
         width = sizeScreen.x;
         height = sizeScreen.y;
 
+        rebond = MediaPlayer.create(jeu, R.raw.rebond);
+        rebond.setVolume(VOLUME_REBOND, VOLUME_REBOND);
+
         //Casse-Briques
 
     this.imagesCasseBriques = imagesCasseBriques;
@@ -97,7 +106,7 @@ private ImageView imageView; // ImageView
 
 
     /*      Fonction de mise à jour de la position de la bille      */
-    public boolean updatePosBille(float AccelX, float AccelY){
+    public boolean updatePosBille(float AccelX, float AccelY) throws IOException {
         vitesseX += -AccelX/COEFF_DIV_VITESSE;
         vitesseY += AccelY/COEFF_DIV_VITESSE;
 
@@ -179,6 +188,11 @@ private ImageView imageView; // ImageView
                 Log.d(TAG, "Rectangle de collision : " +rectanglesCasseBriques[i][j].toShortString());
                 Log.d(TAG, "i : " +i+ " j : " +j);
                 if (rectanglesCasseBriques[i][j].intersects(posX, posY, posX + sizeX, posY + sizeY)) { // S'il y a collision avec la bille (positions passées en paramètre)
+                    if(rebond.isPlaying()){
+                        rebond.stop();
+                        rebond.prepare();
+                    }
+                    rebond.start();
 
                     /*  On teste les distances entre les bords de la bille et les murs pour trouver la distance la plus courte avec le mur et trouver son point d'entrée */
                     mem = abs((int) rectanglesCasseBriques[i][j].right - (int) posX);

@@ -5,18 +5,24 @@ import static android.view.View.MeasureSpec.getSize;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.constraintlayout.widget.ConstraintLayout;
 
+import android.content.Context;
 import android.content.Intent;
 import android.graphics.Point;
 import android.graphics.RectF;
 import android.graphics.Typeface;
+import android.media.MediaPlayer;
 import android.os.Bundle;
+import android.os.Handler;
 import android.util.Log;
 import android.view.View;
+import android.view.animation.Animation;
+import android.view.animation.TranslateAnimation;
 import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
@@ -26,6 +32,11 @@ import fr.ensea.tp_labyby.Bille;
 public class jeuActivity extends AppCompatActivity {
 
     private final static int TAILLE_BILLE = 100;
+    private final static int TEMPS_ATTENTE_CAISSES = 300;
+    private final static int TEMPS_ATTENTE_BILLE = 400;
+    private final static int TEMPS_ATTENTE_LANCEMENT = 800;
+    private final static float VOLUME_MUSIQUE = 1.0f;
+            ;
     private int hauteurTexte;
     private final static String TAG = "debugPageJeu";
 
@@ -51,12 +62,18 @@ public class jeuActivity extends AppCompatActivity {
     private boolean memFin = false;
 
     private boolean finNiveau;
+    private boolean finAnim;
+
+    private Context contexte;
+    private MediaPlayer sonPorte;
+
 
     //Version Casse-briques
     ImageView im[][] = new ImageView[NB_MURS_HAUTEUR][NB_MURS_LARGEURS];
     RectF rectangCasseBriques[][] = new RectF[NB_MURS_HAUTEUR][NB_MURS_LARGEURS];
     private Bille bille;
     ImageView imageBille;
+    ImageView fondJura;
     Accelero accelorenzo;
 
     private String nomJoueur;
@@ -65,31 +82,172 @@ public class jeuActivity extends AppCompatActivity {
         Log.d(TAG, "Début de la partie !");
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_jeu);
-        imageBille = (ImageView)findViewById(R.id.imageView);
-        imageBille.getLayoutParams().width = TAILLE_BILLE;
-        imageBille.getLayoutParams().height = TAILLE_BILLE;
-        sizeScreen = new Point();
-        getWindowManager().getDefaultDisplay().getSize(sizeScreen);
-        layout = (ConstraintLayout) findViewById(R.id.bille);
-        finNiveau = false;
-        memFin = false;
-        hauteurTexte = 50;
-        constructionNiveau();
+        initOnCreate();
+
+    }
+
+    void initOnCreate(){
+
     }
 
 
     @Override
     protected void onStart() {
         super.onStart();
-
-        launchTime = System.currentTimeMillis();
-        bille = new Bille(this, TAILLE_BILLE, getWindowManager().getDefaultDisplay(), rectangles, rectangCasseBriques, im, NB_MURS_HAUTEUR, NB_MURS_LARGEURS);
-
     }
 
     @Override
     protected void onResume() {
         super.onResume();
+
+        /*      On joue le theme de jurassic park en boucle, parce que c'est sympa          */
+        MediaPlayer mp;
+        mp = MediaPlayer.create(this, R.raw.parktheme);
+        mp.setLooping(true);
+        mp.setVolume(VOLUME_MUSIQUE, VOLUME_MUSIQUE);
+        mp.start();
+
+
+        sonPorte = MediaPlayer.create(this, R.raw.porte);
+
+        Handler handler = new Handler();
+        handler.postDelayed(new Runnable() {
+            public void run() {
+                initOnResume();
+            }
+        }, TEMPS_ATTENTE_LANCEMENT);
+
+
+    }
+
+    void initOnResume(){
+
+        layout = (ConstraintLayout) findViewById(R.id.bille);
+
+        /*Créer imageView fond jurassic park et le faire descendre sur l'écran puis rebondir avec le son associé    */
+        contexte = this;
+        finAnim = false;
+        fondJura = new ImageView(this);
+        fondJura.setImageResource(R.drawable.jurassic);
+        fondJura.setScaleType(ImageView.ScaleType.FIT_XY);
+        fondJura.setLayoutParams(new ConstraintLayout.LayoutParams(this.getResources().getDisplayMetrics().widthPixels, this.getResources().getDisplayMetrics().heightPixels));
+        //fondJura.setAdjustViewBounds(true);
+        layout.addView(fondJura);
+        fondJura.setBottom(-this.getResources().getDisplayMetrics().heightPixels);
+        Animation secondeDescente = new TranslateAnimation(0, 0, -0.1f*this.getResources().getDisplayMetrics().heightPixels, 0);
+        secondeDescente.setDuration(330);
+        secondeDescente.setFillAfter(true);
+        secondeDescente.setFillEnabled(true);
+        secondeDescente.setAnimationListener(new Animation.AnimationListener(){
+
+            @Override
+            public void onAnimationStart(Animation animation){}
+
+            @Override
+            public void onAnimationRepeat(Animation animation){}
+
+            @Override
+            public void onAnimationEnd(Animation animation){
+                Handler handler = new Handler();
+                handler.postDelayed(new Runnable() {
+                    public void run() {
+                        imageBille = new ImageView(contexte);
+                        //imageBille = (ImageView)findViewById(R.id.imageView);
+                        imageBille.setImageResource(R.drawable.bille);
+                        //imageBille.setMaxWidth(TAILLE_BILLE);
+                        layout.addView(imageBille);
+                        imageBille.requestLayout();
+                        imageBille.getLayoutParams().width = TAILLE_BILLE;
+                        imageBille.getLayoutParams().height = TAILLE_BILLE;
+                        imageBille.setX((contexte.getResources().getDisplayMetrics().widthPixels-TAILLE_BILLE)/2);
+                        imageBille.setY((contexte.getResources().getDisplayMetrics().heightPixels-TAILLE_BILLE)/2);
+                        Handler han2 = new Handler();
+                        han2.postDelayed(new Runnable() {
+                            public void run() {
+                                sizeScreen = new Point();
+                                getWindowManager().getDefaultDisplay().getSize(sizeScreen);
+
+                                finNiveau = false;
+                                memFin = false;
+                                hauteurTexte = 50;
+                                constructionNiveau();
+
+                                launchTime = System.currentTimeMillis();
+
+                                Intent intent = getIntent();
+                                nomJoueur = intent.getStringExtra(MainActivity.NOM);
+                                Log.d(TAG, "Nom du joueur " +nomJoueur);
+                                Toast.makeText(contexte, "Nom du joueur " +nomJoueur, Toast.LENGTH_LONG).show();
+                                accelorenzo = new Accelero(jeuActivity.this);
+                                accelorenzo.startAcceleroListener();
+
+
+                                runThread();
+                            }
+                        }, TEMPS_ATTENTE_CAISSES);
+                    }
+                }, TEMPS_ATTENTE_BILLE);
+
+
+                sonPorte.start();
+            }
+        });
+        Animation premiereMontee = new TranslateAnimation(0, 0, 0, -0.1f*this.getResources().getDisplayMetrics().heightPixels);
+        premiereMontee.setDuration(130);
+        premiereMontee.setFillAfter(true);
+        premiereMontee.setFillEnabled(true);
+        premiereMontee.setAnimationListener(new Animation.AnimationListener(){
+
+            @Override
+            public void onAnimationStart(Animation animation){}
+
+            @Override
+            public void onAnimationRepeat(Animation animation){}
+
+            @Override
+            public void onAnimationEnd(Animation animation){
+                fondJura.startAnimation(secondeDescente);
+            }
+        });
+        Animation premiereDescente = new TranslateAnimation(0, 0, -this.getResources().getDisplayMetrics().heightPixels, 0);
+        premiereDescente.setDuration(800);
+        premiereDescente.setFillAfter(true);
+        premiereDescente.setFillEnabled(true);
+        premiereDescente.setAnimationListener(new Animation.AnimationListener(){
+
+            @Override
+            public void onAnimationStart(Animation animation){}
+
+            @Override
+            public void onAnimationRepeat(Animation animation){}
+
+            @Override
+            public void onAnimationEnd(Animation animation){
+                sonPorte.start();
+                fondJura.startAnimation(premiereMontee);
+            }
+        });
+        fondJura.startAnimation(premiereDescente);
+        bille = new Bille(this, TAILLE_BILLE, getWindowManager().getDefaultDisplay(), rectangles, rectangCasseBriques, im, NB_MURS_HAUTEUR, NB_MURS_LARGEURS);
+
+       /* imageBille = new ImageView(this);
+        //imageBille = (ImageView)findViewById(R.id.imageView);
+        imageBille.setImageResource(R.drawable.bille);
+        //imageBille.setMaxWidth(TAILLE_BILLE);
+        layout.addView(imageBille);
+        imageBille.requestLayout();
+        imageBille.getLayoutParams().width = TAILLE_BILLE;
+        imageBille.getLayoutParams().height = TAILLE_BILLE;
+        sizeScreen = new Point();
+        getWindowManager().getDefaultDisplay().getSize(sizeScreen);
+
+        finNiveau = false;
+        memFin = false;
+        hauteurTexte = 50;
+        constructionNiveau();
+
+        launchTime = System.currentTimeMillis();
+        bille = new Bille(this, TAILLE_BILLE, getWindowManager().getDefaultDisplay(), rectangles, rectangCasseBriques, im, NB_MURS_HAUTEUR, NB_MURS_LARGEURS);
         Intent intent = getIntent();
         nomJoueur = intent.getStringExtra(MainActivity.NOM);
         Log.d(TAG, "Nom du joueur " +nomJoueur);
@@ -98,8 +256,7 @@ public class jeuActivity extends AppCompatActivity {
         accelorenzo.startAcceleroListener();
 
 
-        runThread();
-
+        runThread();*/
     }
 
 
@@ -110,8 +267,6 @@ public class jeuActivity extends AppCompatActivity {
     }
     private void runThread() {
 
-
-        /* Je pense que le runOnUiThread bloque l'exécution de tout le reste à cause de la boucle infinie           */
         new Thread() {
             public void run() {
                 while(true) {
@@ -165,7 +320,7 @@ public class jeuActivity extends AppCompatActivity {
                         }
                         Thread.sleep(15);
                     }
-                } catch (InterruptedException e) {
+                } catch (InterruptedException | IOException e) {
                     e.printStackTrace();
                 }
             }
@@ -216,6 +371,18 @@ public class jeuActivity extends AppCompatActivity {
         * On affiche le temps final
         * On affiche le tableau des scores
         */
+
+        /*  On refait disparaître le fond       */
+        Animation animSurprise2Movement = new TranslateAnimation(0, 0, 0, -this.getResources().getDisplayMetrics().heightPixels);
+        animSurprise2Movement.setDuration(500);
+        animSurprise2Movement.setFillAfter(true);
+        animSurprise2Movement.setFillEnabled(true);
+        fondJura.startAnimation(animSurprise2Movement);
+
+        MediaPlayer mp2;
+        mp2 = MediaPlayer.create(this, R.raw.finjeu);
+        mp2.start();
+
     }
 
 
@@ -238,9 +405,7 @@ public class jeuActivity extends AppCompatActivity {
         for (int i = 0; i < NB_MURS_HAUTEUR; i++) {
             for (int j = 0; j < NB_MURS_LARGEURS; j++) {
                 mapMurs[i][j] = inte.nextInt(2);
-//                if(((j * (int) largeurMurs < posIniBilleX) && ((j+1) * (int) largeurMurs > posIniBilleX)) || (i * (int) hauteurMurs < posIniBilleY) && ((i+1) * (int) hauteurMurs > posIniBilleY))
-//                    mapMurs[i][j] = 0;
-//            }
+
                 if(((j * (int) largeurMurs < posIniBilleX) && ((j+1) * (int) largeurMurs > posIniBilleX)) && (i * (int) hauteurMurs < posIniBilleY) && ((i+1) * (int) hauteurMurs > posIniBilleY))
                     mapMurs[i][j] = 0;
             }
@@ -286,26 +451,20 @@ public class jeuActivity extends AppCompatActivity {
         rectangles = new ArrayList();
         boolean videAProximite;
 
-        /* Géneration niveau "en dur"       */
         for (int i = 0; i < NB_MURS_HAUTEUR; i++){
             for(int j = 0; j < NB_MURS_LARGEURS; j++){
                 videAProximite = false;
                 if(mapMurs[i][j] == 1) {
                     ImageView imageView = new ImageView(this);
-                    //imageView.setImageResource(R.drawable.badguy);
                     imageView.setImageResource(R.drawable.caisse);
                     imageView.setMaxWidth((int) largeurMurs);
                     imageView.setMaxHeight((int) hauteurMurs);
                     imageView.setAdjustViewBounds(true);
-                    //imageView2.setScaleType(ImageView.ScaleType.FIT_XY);
-/*                    imageView.setX((j * (int)largeurMurs) + (int)resteHauteur / 2);
-                    imageView.setY((i * (int)hauteurMurs) + (int)resteLargeur / 2);*/
                     imageView.setX((j * (int) largeurMurs));
                     imageView.setY((i * (int) hauteurMurs));
                     imageView.setAlpha(1.0f);
                     layout.addView(imageView);
 
-                    /*  Tentative de casse briques  */
                     rectangCasseBriques[i][j] = new RectF(j * (int) largeurMurs, i * (int) hauteurMurs, j * (int) largeurMurs + (int) largeurMurs, i * (int) hauteurMurs + (int) hauteurMurs);
                     im[i][j] = imageView;
 
